@@ -6,19 +6,25 @@
 # This script will allow you to stream a webcam to Youtube, with an overlay
 # from the CRG scoreboard. It also saves a copy of the video locally.
 
-# This was written to work on Linux (Ubuntu in particular with ffmpeg
-# 2.8.11-0ubuntu0.16.04.1), and presumes you that you know what you're doing
-# when it comes to computers.
+# If the connection to Youtube breaks, the local copy will still be made and
+# once the connection is working again the livestream will continue on from
+# where it was. There may be warnings about "Past duration 0.973076 too large"
+# when this happens - these are harmless.
+
+# This was written to work on Linux (Ubuntu in particular, with ffmpeg
+# 2.8.11-0ubuntu0.16.04.1). It's currently a bit raw, and presumes you that you
+# know what you're doing when it comes to computers.
 
 # To use:
 # - Setup CRG as you usually would. 
-# - Prepare a seperate machine for video encoding. 
-#   Encoding is expensive, it needs its own machine not doing anything else.
+# - Prepare a separate machine for video encoding.
+#   Encoding is CPU intensive, it needs its own machine not doing anything else.
 # - Enable your Youtube account for livestreaming (it's under Creator Studio).
 # - Put your stream key in $HOME/.youtube_key
 # - Ensure you can access CRG from the video machine (network setup left as exercise for the reader).
 # - apt-get install ffmpeg alsa-utils
 # - Disable screensaver/power saving on video machine.
+# - If using a laptop, make sure it's on mains power.
 # - Set the various variables below as needed.
 # - Make sure the current directory has space for the local copy of the videos.
 # - Run this script in a loop in case it crashes: while true; do ./stream.sh; done
@@ -26,9 +32,10 @@
 # - Make sure mouse pointer isn't visible.
 # - Don't touch anything until the bout is over.
 
-# About 10 seconds later, the livestream should show up on Youtube.
-# It will likely take some trial and error to get all the settings right. Make sure
+# About 20 seconds later, the livestream should show up on Youtube. It will
+# likely take some trial and error to get all the settings right. Make sure
 # you've CPU, disk space and internet bandwidth to spare.
+# It would be wise to try this out at scrimmage before using it at a full game.
 
 
 # Camera device. Likely video0 or video1.
@@ -73,9 +80,22 @@ FILTER="
 
 ENCODE="-vcodec libx264 -pix_fmt yuv420p -preset veryfast -r $FRAMERATE -g $FRAMERATE -b:v $BITRATE -codec:a libmp3lame -ar 44100 -threads 4 -b:a 64k -bufsize $BITRATE"
 
+OUTFILE="out-$(date +%Y-%m-%d-%H%M%S).flv"
+
+
+# Start the encoder, write to local disk.
 ffmpeg $AUDIO_IN $CAMERA_IN $SCOREBOARD_IN \
   -filter_complex "$FILTER" -map '[out]:v' -map 0:a \
-  $ENCODE -f flv - | \
-  ffmpeg -f flv -i - \
-    -c copy -f flv "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_KEY" \
-    -c copy -f flv "out-$(date +%Y-%m-%d-%H%M%S).flv"
+  $ENCODE -f flv $OUTFILE &
+ENCODE_PID=$!
+
+# Stop the encoder when the script stops.
+function cleanup {
+  kill $ENCODE_PID
+}
+trap cleanup EXIT
+
+# Wait a bit for encoder to write the file, then stream that to youtube.
+sleep 10
+ffmpeg -re -i $OUTFILE -c copy -f flv rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_KEY
+
