@@ -40,11 +40,12 @@
 
 # Camera device. Likely video0 or video1.
 CAMERA_DEVICE="/dev/video0"
-# Supported resolutions can be found with "ffmpeg -f v4l2 -list_formats all -i /dev/video0"
+# Supported resolutions and encodings can be found with "ffmpeg -f v4l2 -list_formats all -i /dev/video0"
 # This is also the output resolution. Reduce if you're having problems.
-CAMERA_RESOLUTION="854x480"
+CAMERA_RESOLUTION="1280x720"
+CAMERA_ENCODING="mjpeg"
 # Framerate. Reduce if you're having problems.
-FRAMERATE="10"
+FRAMERATE="25"
 # Output video bitrate. Bigger means better picture, but more network bandwidth and disk space.
 # See also https://support.google.com/youtube/answer/2853702?hl=en&ref_topic=6136989
 # Rule of thumb: 1024kb/s for a 2 hour bout is around 1GB.
